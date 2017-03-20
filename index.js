@@ -6,6 +6,7 @@ function typeOf(thing){ // return correct native type.
 
 function Core(options) {
 
+    this.name = options.name;
     this.plugins = {};
     this.constructor = Core;
     this.core = this;
@@ -25,20 +26,25 @@ Core.prototype = {
     emptyObject: {},
     emptyArray: [],
     emptyFunction(){},
-    toolChains: {
-        plugins: []
+    call(func, ...args){
+        if(!this.isFunction(func)){ return func; }
+        return func.call(this, ...args);
     },
-    runToolChain(name, data, done){
+    builders: {
+        plugin: []
+    },
+    make(name, data, done){
         
+        var core = this;
         var index = 0;
-        var toolChain = this.toolChains[name];
-        if(!toolChain) { throw new Error(`cannot find toolChain '${name}'`); }
+        var builder = this.buildres[name];
+        if(!builder) { throw new Error(`cannot find builder '${name}'`); }
         
         function next(data){
-            var tool = toolChain[index];
-            if(!tool) return done(data);
+            var tool = builder[index];
+            if(!tool) return (done && done(data));
             index++;
-            tool(data, next);
+            core.call(tool, data, next);
         }
 
         next(data);
@@ -49,11 +55,11 @@ Core.prototype = {
         if (!definition || !this.isObject(definition)) { throw new Error(`cannot create plugin from "${definition}"`); }
         if (!definition.name) { throw new Error(`a plugin's name is missing in Object ${ Object.keys(definition) }`); }
 
-        
-        this.runToolChain('plugins', definition, (plugin)=>{
+        this.make('plugin', definition, (plugin)=>{
             if(this.isFunction(plugin.init)){
-                plugin.init(this);
+                plugin.init(this)
             }
+            this.plugins[plugin.name] = plugin;
             if(this.isFunction(callback)){
                 callback(plugin);
             }
